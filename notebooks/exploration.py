@@ -23,7 +23,7 @@ print(df.describe().round(2))
 
 # ===== REPARTITION DES DIAGNOSTICS =====
 print(f"\n--- Repartition des diagnostics ---")
-diag_counts = df["diagnostic"].value_counts()
+diag_counts = df["diagnostic"].value_counts() # compte le nb de colonnes
 for diag, count in diag_counts.items():
     pct = count / len(df) * 100
     print(f" {diag:12s} : {count:3d} patients ({pct:.1f}%)")
