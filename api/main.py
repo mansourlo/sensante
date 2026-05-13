@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 import joblib
 import numpy as np
+from typing import List
 
 # Creer l'application
 app = FastAPI(
@@ -122,4 +123,25 @@ def predict(patient: PatientInput):
         probabilite=round(proba_max, 2),
         confiance=confiance,
         message=messages.get(diagnostic, "Consultez un medecin.")
+    )
+
+# Exercice 1: Endpoint supplementaire 
+class ModelInfo(BaseModel):
+    type_modele: str
+    nombre_arbres: int
+    classes: List[str]
+    nombre_features: int
+    features_names: List[str]  # optionnel mais utile
+
+@app.get("/model-info", response_model=ModelInfo)
+def model_info():
+    """
+    Retourne les métadonnées du modèle de diagnostic chargé.
+    """
+    return ModelInfo(
+        type_modele=type(model).__name__,
+        nombre_arbres=model.n_estimators,
+        classes=list(model.classes_),
+        nombre_features=model.n_features_in_,
+        features_names=list(model.feature_names_in_)
     )
