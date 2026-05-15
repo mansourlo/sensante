@@ -125,9 +125,10 @@
   <!-- JavaScript -->
   <script>
     // URL de l'API (a changer si l'API est ailleurs)
-    const API_URL = "http://localhost:8000";
+const API_URL = "http://localhost:8000";
+const historique = [];  // Stocke max 5 dernières consultations
 
-    async function diagnostiquer() {
+async function diagnostiquer() {
   // 1. Recuperer les valeurs du formulaire
   const patient = {
     age: parseInt(document.getElementById("age").value),
@@ -153,9 +154,7 @@
     // 4. Envoyer la requete a l'API
     const response = await fetch(API_URL + "/predict", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patient)
     });
 
@@ -168,13 +167,14 @@
     // 6. Lire le resultat
     const resultat = await response.json();
 
-    // 7. Afficher le resultat
-    afficherResultat(resultat);
+    // 7. Afficher le resultat + historique
+    afficherResultat(resultat, patient);
   } catch (error) {
     afficherErreur("Erreur de connexion : " + error.message);
   }
 }
-    function afficherChargement() {
+
+function afficherChargement() {
   const section = document.getElementById("result-section");
   section.innerHTML = `
     <div class="bg-white rounded-xl shadow-md p-6 text-center">
@@ -184,49 +184,83 @@
   `;
 }
 
-function afficherResultat(r) {
+function afficherResultat(r, patient) {
   // Codes couleur par diagnostic
   const couleurs = {
-    palu: {
-      bg: "bg-red-100",
-      text: "text-red-800",
-      bar: "bg-red-500",
-      badge: "bg-red-500"
-    },
-    grippe: {
-      bg: "bg-orange-100",
-      text: "text-orange-800",
-      bar: "bg-orange-500",
-      badge: "bg-orange-500"
-    },
-    typh: {
-      bg: "bg-yellow-100",
-      text: "text-yellow-800",
-      bar: "bg-yellow-500",
-      badge: "bg-yellow-500"
-    },
-    sain: {
-      bg: "bg-green-100",
-      text: "text-green-800",
-      bar: "bg-green-500",
-      badge: "bg-green-500"
-    }
+    palu: { bg: "bg-red-100", text: "text-red-800", bar: "bg-red-500", badge: "bg-red-500" },
+    grippe: { bg: "bg-orange-100", text: "text-orange-800", bar: "bg-orange-500", badge: "bg-orange-500" },
+    typh: { bg: "bg-yellow-100", text: "text-yellow-800", bar: "bg-yellow-500", badge: "bg-yellow-500" },
+    sain: { bg: "bg-green-100", text: "text-green-800", bar: "bg-green-500", badge: "bg-green-500" }
+  };
+
+  // Emojis associés
+  const emojis = {
+    palu: "🌡️",
+    grippe: "🤧",
+    typh: "🧫",
+    sain: "✅"
   };
 
   const c = couleurs[r.diagnostic] || couleurs["sain"];
+  const emoji = emojis[r.diagnostic] || "🏥";
   const pct = Math.round(r.probabilite * 100);
   const section = document.getElementById("result-section");
 
+  // --- Enregistrer dans l'historique ---
+  const nomPatient = `${patient.age} ans (${patient.sexe})`;
+  historique.unshift({ nom: nomPatient, diagnostic: r.diagnostic, probabilite: pct });
+  if (historique.length > 5) historique.pop();
+
+  // --- Générer le tableau d'historique ---
+  let historiqueHtml = `
+    <div class="bg-white rounded-xl shadow-md p-6 mt-6">
+      <h3 class="font-bold text-gray-800 mb-3">📋 Dernières consultations</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-3 py-2 text-left">Patient</th>
+              <th class="px-3 py-2 text-left">Diagnostic</th>
+              <th class="px-3 py-2 text-left">Probabilité</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+
+  if (historique.length === 0) {
+    historiqueHtml += `<tr><td colspan="3" class="px-3 py-4 text-center text-gray-400">Aucune consultation</td></tr>`;
+  } else {
+    historique.forEach(entry => {
+      historiqueHtml += `
+        <tr class="border-b">
+          <td class="px-3 py-2">${entry.nom}</td>
+          <td class="px-3 py-2">${entry.diagnostic}</td>
+          <td class="px-3 py-2">${entry.probabilite}%</td>
+        </tr>
+      `;
+    });
+  }
+
+  historiqueHtml += `
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // --- Affichage complet (résultat + historique) ---
   section.innerHTML = `
     <div class="bg-white rounded-xl shadow-md p-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-4">Resultat</h2>
+      <h2 class="text-xl font-bold text-gray-800 mb-4">Résultat</h2>
       <div class="${c.bg} rounded-lg p-4 mb-4">
         <p class="text-sm text-gray-600">Diagnostic :</p>
-        <p class="text-2xl font-bold ${c.text} uppercase mt-1">${r.diagnostic}</p>
+        <p class="text-2xl font-bold ${c.text} uppercase mt-1">
+          ${emoji} ${r.diagnostic}
+        </p>
       </div>
       <div class="mb-4">
         <div class="flex justify-between mb-1">
-          <span class="text-sm text-gray-600">Probabilite</span>
+          <span class="text-sm text-gray-600">Probabilité</span>
           <span class="text-sm font-bold ${c.text}">${pct}%</span>
         </div>
         <div class="w-full bg-gray-200 rounded-full h-3">
@@ -241,6 +275,7 @@ function afficherResultat(r) {
         <p class="text-sm text-gray-700">${r.message}</p>
       </div>
     </div>
+    ${historiqueHtml}
   `;
 }
 
@@ -249,7 +284,7 @@ function afficherErreur(msg) {
   section.innerHTML = `
     <div class="bg-red-50 border border-red-200 rounded-xl p-6">
       <p class="text-red-700 font-medium">${msg}</p>
-      <p class="text-red-500 text-sm mt-2">Verifiez votre connexion et reessayez.</p>
+      <p class="text-red-500 text-sm mt-2">Vérifiez votre connexion et réessayez.</p>
     </div>
   `;
 }
